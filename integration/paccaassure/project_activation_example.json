@@ -1,0 +1,11 @@
+{
+  "tenant_id": "tenant",
+  "project_id": "project",
+  "environment_id": "environment",
+  "tool_activation": {
+    "tool_key": "excel_read",
+    "version": "0.1.0",
+    "enabled": true,
+    "network_policy": "deny"
+  }
+}

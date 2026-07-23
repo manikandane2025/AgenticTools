@@ -1,0 +1,14 @@
+{
+  "package_name": "paccaassure-common-tools",
+  "package_version": "0.1.0",
+  "runtime_contract_version": "1.0",
+  "handler_contract": {
+    "input": "ToolInvocation",
+    "output": "ToolResult",
+    "manifest": "ToolManifest"
+  },
+  "constraints": {
+    "backend_orm_imports_allowed": false,
+    "network_default_for_core_tools": "deny"
+  }
+}

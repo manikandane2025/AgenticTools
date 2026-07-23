@@ -1,0 +1,28 @@
+# Python caches and virtualenv artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+
+# Local runtime and generated artifacts
+artifacts/
+pacca_tmp/
+
+# Local tool metadata
+.qodo/
+
+# Filter document-heavy requirement material for now
+AGENT.md
+IMPLEMENTATION_RESPONSE.md
+ContextsAndEngineering/
+docs/

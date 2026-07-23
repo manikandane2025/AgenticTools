@@ -1,0 +1,14 @@
+{
+  "node_id": "story-intake-excel-read",
+  "tool_key": "excel_read",
+  "version_constraint": "==0.1.0",
+  "required_capabilities": [
+    "excel_io"
+  ],
+  "input_mapping": {
+    "path": "story_intake.xlsx"
+  },
+  "output_mapping": {
+    "table_output": "$.outputs.table_output"
+  }
+}
