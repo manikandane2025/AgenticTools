@@ -4,6 +4,10 @@ from paccaassure_common_tools.adapters.csv_tools import register_csv_tools
 from paccaassure_common_tools.adapters.dummy import register_dummy_tool
 from paccaassure_common_tools.adapters.excel_tools import register_excel_tools
 from paccaassure_common_tools.adapters.pdf_tools import register_pdf_tools
+from paccaassure_common_tools.constants import (
+    CERTIFICATION_REPORT_PATH,
+    RUNTIME_COMPATIBILITY,
+)
 from paccaassure_common_tools.exceptions import CompatibilityError
 from paccaassure_common_tools.models import (
     CertificationVerdict,
@@ -13,6 +17,7 @@ from paccaassure_common_tools.models import (
     ToolManifestEntry,
     ToolRegistration,
 )
+from paccaassure_common_tools.settings import load_runtime_settings
 from paccaassure_common_tools.version import PACKAGE_NAME, PACKAGE_VERSION
 
 
@@ -59,16 +64,22 @@ class ToolRegistry:
         return list(self._registrations.values())
 
     def export_manifest(self) -> ToolManifest:
+        settings = load_runtime_settings()
         return ToolManifest(
             package_name=PACKAGE_NAME,
             package_version=PACKAGE_VERSION,
-            runtime_compatibility=[">=1.0,<2.0"],
+            runtime_compatibility=list(RUNTIME_COMPATIBILITY),
             tools=[
                 ToolManifestEntry(
                     identity=item.identity,
                     capabilities=item.capabilities,
                     maturity=item.maturity,
                     certification=item.certification,
+                    runtime_image=settings.image,
+                    runtime_image_digest=settings.image_digest,
+                    certification_evidence_ref=(
+                        f"{CERTIFICATION_REPORT_PATH.as_posix()}#{item.identity.tool_key}"
+                    ),
                 )
                 for item in self.list_tools()
             ],

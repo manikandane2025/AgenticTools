@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+from typing import cast
 
 from paccaassure_common_tools.certification import run_certification
+from paccaassure_common_tools.constants import DEFAULT_TOOL_VERSION
 from paccaassure_common_tools.invocation import InvocationManager, build_workspace, default_policy
 from paccaassure_common_tools.registry import build_default_registry
 
@@ -20,7 +23,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     invoke = subparsers.add_parser("invoke")
     invoke.add_argument("--tool-key", required=True)
-    invoke.add_argument("--version", default="0.1.0")
+    invoke.add_argument("--version", default=DEFAULT_TOOL_VERSION)
     invoke.add_argument("--payload", required=True, help="JSON payload string or @path")
     invoke.add_argument("--workspace", required=True)
     invoke.add_argument("--idempotency-key", required=True)
@@ -34,8 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def load_payload(raw: str) -> dict[str, object]:
     if raw.startswith("@"):
-        return json.loads(Path(raw[1:]).read_text(encoding="utf-8"))
-    return json.loads(raw)
+        return cast(dict[str, object], json.loads(Path(raw[1:]).read_text(encoding="utf-8")))
+    return cast(dict[str, object], json.loads(raw))
 
 
 def main() -> int:
@@ -44,10 +47,11 @@ def main() -> int:
     registry = build_default_registry()
 
     if args.command == "list-tools":
-        print(
+        sys.stdout.write(
             json.dumps(
                 [item.identity.model_dump(mode="json") for item in registry.list_tools()], indent=2
             )
+            + "\n"
         )
         return 0
 
@@ -69,7 +73,7 @@ def main() -> int:
             workspace=workspace,
             idempotency_key=args.idempotency_key,
         )
-        print(result.model_dump_json(indent=2))
+        sys.stdout.write(result.model_dump_json(indent=2) + "\n")
         return 0
 
     if args.command == "certify":
@@ -80,7 +84,7 @@ def main() -> int:
             commands=["pacca-tools certify"],
         )
         Path(args.output).write_text(report.model_dump_json(indent=2), encoding="utf-8")
-        print(report.model_dump_json(indent=2))
+        sys.stdout.write(report.model_dump_json(indent=2) + "\n")
         return 0
 
     parser.error("Unsupported command")

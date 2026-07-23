@@ -2,8 +2,14 @@ __pycache__
 .pytest_cache
 .mypy_cache
 .ruff_cache
+.venv
+venv
 artifacts
 coverage.xml
 dist
 build
 pacca_tmp
+htmlcov
+*.log
+.idea
+.vscode

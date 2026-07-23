@@ -4,6 +4,7 @@ import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import cast
 from uuid import uuid4
 
 from paccaassure_common_tools.artifacts import ArtifactCollector
@@ -12,15 +13,18 @@ from paccaassure_common_tools.models import (
     InvocationContext,
     InvocationRecord,
     InvocationStatus,
+    ToolChecksums,
     ToolError,
     ToolErrorCategory,
     ToolIdentity,
     ToolInvocation,
     ToolInvocationContext,
     ToolMetrics,
+    ToolPolicyDecision,
     ToolPolicySnapshot,
     ToolProvenance,
     ToolResult,
+    ToolTiming,
     WorkspaceRoots,
 )
 from paccaassure_common_tools.policy import validate_policy
@@ -91,8 +95,31 @@ class InvocationManager:
         idempotency_key: str,
         cancellation_token: CancellationToken | None = None,
     ) -> ToolResult:
+        request_fingerprint = json.dumps(
+            {"payload": payload, "policy": policy.model_dump(mode="json")},
+            sort_keys=True,
+            default=str,
+        )
         if idempotency_key in self._by_idempotency:
             existing = self._records[self._by_idempotency[idempotency_key]]
+            if (
+                existing.request_fingerprint is not None
+                and existing.request_fingerprint != request_fingerprint
+            ):
+                return self._failed_result(
+                    identity=ToolIdentity(
+                        tool_key=tool_key,
+                        version=version,
+                        family="unknown",
+                        adapter_key="unknown",
+                    ),
+                    error=ToolError(
+                        code="TOOL_IDEMPOTENCY_CONFLICT",
+                        message="Idempotency key was reused with different material input or policy.",
+                        category=ToolErrorCategory.VALIDATION,
+                        retryable=False,
+                    ),
+                )
             if existing.result is None:
                 return self._failed_result(
                     identity=ToolIdentity(
@@ -108,7 +135,15 @@ class InvocationManager:
                         retryable=True,
                     ),
                 )
-            return existing.result
+            reused = existing.result.model_copy(deep=True)
+            reused.policy_decisions.append(
+                ToolPolicyDecision(
+                    code="IDEMPOTENT_REUSE",
+                    status="reused",
+                    details={"idempotency_key": idempotency_key},
+                )
+            )
+            return reused
 
         registration = self.registry.resolve(tool_key, version)
         invocation, context = self._new_invocation_context(
@@ -121,22 +156,29 @@ class InvocationManager:
         record = InvocationRecord(
             invocation_id=invocation.tool_invocation_id,
             idempotency_key=idempotency_key,
+            request_fingerprint=request_fingerprint,
             status=InvocationStatus.VALIDATED,
         )
         self._records[record.invocation_id] = record
         self._by_idempotency[idempotency_key] = record.invocation_id
 
-        collector = ArtifactCollector(workspace)
+        collector = ArtifactCollector(
+            workspace,
+            tool_key=registration.identity.tool_key,
+            tool_version=registration.identity.version,
+            invocation_id=invocation.tool_invocation_id,
+        )
         start = time.perf_counter()
         try:
             if cancellation_token and cancellation_token.cancelled:
                 raise ToolCancelled()
             record.status = InvocationStatus.RUNNING
-            result = registration.adapter.execute(payload, context, collector)
+            result = cast(ToolResult, registration.adapter.execute(payload, context, collector))
             if cancellation_token and cancellation_token.cancelled:
                 raise ToolCancelled()
             duration_ms = int((time.perf_counter() - start) * 1000)
             result.metrics.duration_ms = duration_ms
+            result.timing.finished_at = result.timing.finished_at or record.finished_at
             record.status = result.status
             record.result = result
             return result
@@ -158,16 +200,28 @@ class InvocationManager:
         status: InvocationStatus = InvocationStatus.FAILED,
     ) -> ToolResult:
         return ToolResult(
+            tool_invocation_id=f"failed-{identity.tool_key}-{identity.version}",
+            tool_key=identity.tool_key,
+            tool_version=identity.version,
+            adapter_key=identity.adapter_key,
+            adapter_version=identity.version,
             status=status,
             outputs={},
             warnings=[],
             errors=[error],
-            metrics=ToolMetrics(warnings=0),
+            metrics=ToolMetrics(warnings_count=0),
             provenance=ToolProvenance(
+                tool_key=identity.tool_key,
+                tool_version=identity.version,
                 adapter_key=identity.adapter_key,
                 adapter_version=identity.version,
                 library_versions={},
             ),
+            evidence=[],
+            artifacts=[],
+            policy_decisions=[],
+            timing=ToolTiming(),
+            checksums=ToolChecksums(),
         )
 
 

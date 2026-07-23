@@ -1,0 +1,40 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from paccaassure_common_tools.version import PACKAGE_VERSION
+
+DEFAULT_TOOL_VERSION = PACKAGE_VERSION
+IMAGE_NAME = "pacca-tools-core"
+IMAGE_REF = f"{IMAGE_NAME}:{PACKAGE_VERSION}"
+LOCAL_IMAGE_DIGEST = "local-build"
+RUNTIME_COMPATIBILITY = [">=1.0,<2.0"]
+
+DEFAULT_TIMEOUT_SECONDS = 30
+DEFAULT_RETRIES = 0
+DEFAULT_MAX_INPUT_BYTES = 50_000_000
+DEFAULT_MAX_OUTPUT_BYTES = 50_000_000
+DEFAULT_MAX_TEMP_BYTES = 25_000_000
+DEFAULT_MAX_SHEET_COUNT = 100
+DEFAULT_MAX_PAGE_COUNT = 1000
+
+DEFAULT_FILESYSTEM_REQUIREMENT = "input_read_only_output_temp_scoped"
+DEFAULT_CREDENTIAL_REQUIREMENT = "none"
+
+MIME_CSV = "text/csv"
+MIME_PDF = "application/pdf"
+MIME_XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+ENV_IMAGE = "PACCA_TOOLS_IMAGE"
+ENV_IMAGE_DIGEST = "PACCA_TOOLS_IMAGE_DIGEST"
+ENV_CAPABILITY_MATRIX = "PACCA_CAPABILITY_MATRIX_PATH"
+ENV_CONTAINER_MATRIX = "PACCA_CONTAINER_MATRIX_PATH"
+ENV_LICENSE_COMPLIANCE = "PACCA_LICENSE_COMPLIANCE_PATH"
+ENV_DOCKER_SECURITY_PROOF = "PACCA_DOCKER_SECURITY_PROOF_PATH"
+ENV_VULNERABILITY_REPORT = "PACCA_VULNERABILITY_REPORT_PATH"
+
+CERTIFICATION_REPORT_PATH = Path("artifacts/certification_report_harden.json")
+CONTAINER_MATRIX_PATH = Path("artifacts/reports/container-tool-matrix.json")
+DOCKER_SECURITY_PROOF_PATH = Path("artifacts/reports/docker-security-proof.json")
+LICENSE_COMPLIANCE_REPORT_PATH = Path("artifacts/reports/license-compliance-report.json")
+VULNERABILITY_REPORT_PATH = Path("artifacts/reports/vulnerability-report.json")

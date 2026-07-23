@@ -7,6 +7,19 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from paccaassure_common_tools.constants import (
+    DEFAULT_CREDENTIAL_REQUIREMENT,
+    DEFAULT_FILESYSTEM_REQUIREMENT,
+    DEFAULT_MAX_INPUT_BYTES,
+    DEFAULT_MAX_OUTPUT_BYTES,
+    DEFAULT_MAX_TEMP_BYTES,
+    DEFAULT_RETRIES,
+    DEFAULT_TIMEOUT_SECONDS,
+    IMAGE_REF,
+    LOCAL_IMAGE_DIGEST,
+    RUNTIME_COMPATIBILITY,
+)
+
 
 def utc_now() -> datetime:
     return datetime.now(tz=UTC)
@@ -70,9 +83,9 @@ class FilesystemPolicy(BaseModel):
     read_only_inputs: bool = True
     enforce_path_traversal_prevention: bool = True
     enforce_symlink_escape_prevention: bool = True
-    max_input_bytes: int = 50_000_000
-    max_output_bytes: int = 50_000_000
-    max_temp_bytes: int = 25_000_000
+    max_input_bytes: int = DEFAULT_MAX_INPUT_BYTES
+    max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES
+    max_temp_bytes: int = DEFAULT_MAX_TEMP_BYTES
 
 
 class ToolPolicySnapshot(BaseModel):
@@ -80,8 +93,8 @@ class ToolPolicySnapshot(BaseModel):
 
     filesystem: FilesystemPolicy = Field(default_factory=FilesystemPolicy)
     network: NetworkPolicy = NetworkPolicy.DENY
-    timeout_seconds: int = 30
-    retries: int = 0
+    timeout_seconds: int = DEFAULT_TIMEOUT_SECONDS
+    retries: int = DEFAULT_RETRIES
     tenant_id: str
     project_id: str
     environment_id: str
@@ -106,9 +119,9 @@ class ToolCapability(BaseModel):
     limits: dict[str, Any] = Field(default_factory=dict)
     deterministic: bool
     network_requirement: NetworkPolicy = NetworkPolicy.DENY
-    filesystem_requirement: str = "input_read_only_output_temp_scoped"
-    credential_requirement: str = "none"
-    runtime_compatibility: list[str] = Field(default_factory=lambda: [">=1.0,<2.0"])
+    filesystem_requirement: str = DEFAULT_FILESYSTEM_REQUIREMENT
+    credential_requirement: str = DEFAULT_CREDENTIAL_REQUIREMENT
+    runtime_compatibility: list[str] = Field(default_factory=lambda: list(RUNTIME_COMPATIBILITY))
     known_fidelity_restrictions: list[str] = Field(default_factory=list)
 
 
@@ -116,13 +129,35 @@ class ToolMetrics(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     duration_ms: int = 0
-    bytes_read: int = 0
-    bytes_written: int = 0
-    records: int = 0
-    tables: int = 0
-    sheets: int = 0
-    pages: int = 0
-    warnings: int = 0
+    input_bytes: int = 0
+    output_bytes: int = 0
+    output_bytes_written: int = 0
+    physical_lines_read: int = 0
+    logical_records_read: int = 0
+    records_processed: int = 0
+    records_returned: int = 0
+    records_skipped: int = 0
+    records_excluded: int = 0
+    records_malformed: int = 0
+    header_rows_consumed: int = 0
+    tables_detected: int = 0
+    tables_returned: int = 0
+    sheets_discovered: int = 0
+    sheets_processed: int = 0
+    rows_discovered: int = 0
+    rows_returned: int = 0
+    cells_processed: int = 0
+    formulas_encountered: int = 0
+    merged_ranges_encountered: int = 0
+    hidden_sheets_skipped: int = 0
+    pages_discovered: int = 0
+    pages_processed: int = 0
+    text_pages: int = 0
+    image_pages: int = 0
+    ocr_required_pages: int = 0
+    artifacts_created: int = 0
+    warnings_count: int = 0
+    retry_count: int = 0
     adapter_library_versions: dict[str, str] = Field(default_factory=dict)
 
 
@@ -130,30 +165,68 @@ class ToolArtifact(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     artifact_id: str
-    name: str
+    logical_name: str
     media_type: str
     path: str
     sha256: str
     size_bytes: int
+    creating_tool_key: str
+    creating_tool_version: str
+    invocation_id: str
+    created_at: datetime = Field(default_factory=utc_now)
+    provenance: dict[str, Any] = Field(default_factory=dict)
+    evidence_ref: str | None = None
+
+    @property
+    def name(self) -> str:
+        return self.logical_name
 
 
 class ToolEvidence(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     evidence_id: str
+    invocation_id: str
+    runtime_run_id: str
+    node_attempt_id: str
+    tool_key: str
+    tool_version: str
+    adapter_key: str
+    adapter_version: str
     kind: str
+    source_artifact_ref: str | None = None
+    source_checksum: str | None = None
+    output_checksum: str | None = None
+    policy_snapshot_hash: str
+    capability_ids: list[str] = Field(default_factory=list)
+    fixture_identity: str | None = None
+    executed_at: datetime = Field(default_factory=utc_now)
+    outcome: str = "completed"
+    artifact_refs: list[str] = Field(default_factory=list)
+    parent_evidence_refs: list[str] = Field(default_factory=list)
     details: dict[str, Any]
 
 
 class ToolProvenance(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    invocation_id: str | None = None
+    runtime_run_id: str | None = None
+    node_attempt_id: str | None = None
+    tool_key: str | None = None
+    tool_version: str | None = None
     runtime_image: str = "local"
     runtime_image_digest: str = "local"
     adapter_key: str
     adapter_version: str
     library_versions: dict[str, str] = Field(default_factory=dict)
     input_snapshot_refs: list[str] = Field(default_factory=list)
+    source_artifacts: list[dict[str, Any]] = Field(default_factory=list)
+    source_version_ref: str | None = None
+    parse_warnings: list[str] = Field(default_factory=list)
+    scopes: dict[str, Any] = Field(default_factory=dict)
+    selection: dict[str, Any] = Field(default_factory=dict)
+    policies: dict[str, Any] = Field(default_factory=dict)
 
 
 class ToolError(BaseModel):
@@ -165,6 +238,39 @@ class ToolError(BaseModel):
     retryable: bool = False
     safe_details: dict[str, Any] = Field(default_factory=dict)
     cause_reference: str | None = None
+
+
+class ToolWarning(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    message: str
+    count: int = 1
+    source_scope: dict[str, Any] = Field(default_factory=dict)
+    policy_reference: str | None = None
+
+
+class ToolPolicyDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: str
+    status: Literal["applied", "reused", "denied"]
+    details: dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolTiming(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    started_at: datetime = Field(default_factory=utc_now)
+    finished_at: datetime | None = None
+
+
+class ToolChecksums(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    input_checksum: str | None = None
+    output_checksum: str | None = None
+    result_checksum: str | None = None
 
 
 class InvocationContext(BaseModel):
@@ -238,14 +344,22 @@ class CanonicalDocumentOutput(BaseModel):
 class ToolResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    tool_invocation_id: str
+    tool_key: str
+    tool_version: str
+    adapter_key: str
+    adapter_version: str
     status: InvocationStatus
     outputs: dict[str, Any] = Field(default_factory=dict)
-    artifacts: list[ToolArtifact] = Field(default_factory=list)
-    evidence: list[ToolEvidence] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    errors: list[ToolError] = Field(default_factory=list)
     metrics: ToolMetrics = Field(default_factory=ToolMetrics)
     provenance: ToolProvenance
+    evidence: list[ToolEvidence] = Field(default_factory=list)
+    warnings: list[ToolWarning] = Field(default_factory=list)
+    errors: list[ToolError] = Field(default_factory=list)
+    artifacts: list[ToolArtifact] = Field(default_factory=list)
+    policy_decisions: list[ToolPolicyDecision] = Field(default_factory=list)
+    timing: ToolTiming = Field(default_factory=ToolTiming)
+    checksums: ToolChecksums = Field(default_factory=ToolChecksums)
 
 
 class ToolManifestEntry(BaseModel):
@@ -255,6 +369,9 @@ class ToolManifestEntry(BaseModel):
     capabilities: list[ToolCapability]
     maturity: ToolMaturity
     certification: CertificationVerdict
+    runtime_image: str = IMAGE_REF
+    runtime_image_digest: str = LOCAL_IMAGE_DIGEST
+    certification_evidence_ref: str | None = None
 
 
 class ToolManifest(BaseModel):
@@ -291,6 +408,7 @@ class CertificationCase(BaseModel):
 class CertificationResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    generated_at: datetime = Field(default_factory=utc_now)
     package_version: str
     image: str
     image_digest: str
@@ -300,6 +418,7 @@ class CertificationResult(BaseModel):
     benchmarks: dict[str, Any]
     scan_results: dict[str, Any]
     evidence_hashes: list[str]
+    tool_results: list[dict[str, Any]] = Field(default_factory=list)
     verdict: CertificationVerdict
 
 
@@ -349,6 +468,7 @@ class InvocationRecord(BaseModel):
 
     invocation_id: str
     idempotency_key: str
+    request_fingerprint: str | None = None
     status: InvocationStatus
     result: ToolResult | None = None
     started_at: datetime = Field(default_factory=utc_now)

@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+.venv/
+venv/
+.python-version
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -13,16 +16,18 @@ coverage.xml
 build/
 dist/
 *.egg-info/
+*.whl
+*.tar.gz
 
 # Local runtime and generated artifacts
 artifacts/
 pacca_tmp/
+htmlcov/
 
 # Local tool metadata
 .qodo/
-
-# Filter document-heavy requirement material for now
-AGENT.md
-IMPLEMENTATION_RESPONSE.md
-ContextsAndEngineering/
-docs/
+.idea/
+.vscode/
+*.log
+Thumbs.db
+Desktop.ini
